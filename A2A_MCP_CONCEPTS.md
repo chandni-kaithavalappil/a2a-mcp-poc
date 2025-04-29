@@ -1,5 +1,5 @@
 # A2A + MCP Interoperability POC: Technical Documentation
-
+Git link : https://github.com/chandni-kaithavalappil/a2a-mcp-poc/blob/main/README.md
 ## Overview
 This POC demonstrates the integration of Google's Agent2Agent (A2A) protocol with Anthropic's Model Context Protocol (MCP) through a weather and joke service application. The system showcases how multiple agents can collaborate using A2A while fetching external data through MCP.
 
@@ -23,21 +23,21 @@ This POC demonstrates the integration of Google's Agent2Agent (A2A) protocol wit
 
 #### Agent Roles
 1. **Agent A (Intent Router)**
-   - Implements A2A client
-   - Analyzes user intent
+   - Implements A2A client using httpx
+   - Analyzes user intent using Streamlit
    - Routes requests to appropriate agents
    - Handles response aggregation
 
 2. **Agent B (Weather Fetcher)**
-   - Implements A2A server
+   - Implements A2A server using FastAPI
    - Receives weather requests
-   - Communicates with MCP server
+   - Communicates with MCP server using httpx
    - Returns formatted responses
 
 3. **Agent C (Joke Teller)**
-   - Implements A2A server
+   - Implements A2A server using FastAPI
    - Receives joke requests
-   - Communicates with MCP server
+   - Communicates with MCP server using httpx
    - Returns formatted responses
 
 ### 2. Model Context Protocol (MCP) Implementation
@@ -62,100 +62,118 @@ class MCPClient:
 #### MCP Servers
 1. **Weather MCP Server**
    - Provides weather data for supported cities
-   - Implements standardized response format
+   - Implements standardized response format using FastAPI
    - Handles city-specific weather patterns
 
 2. **Joke MCP Server**
    - Provides joke data
-   - Implements standardized response format
+   - Implements standardized response format using FastAPI
    - Manages joke database
 
 ## Communication Flow
 
 ### 1. System Architecture Diagram
 ```
-┌─────────────┐     A2A Protocol     ┌─────────────┐     A2A Protocol     ┌─────────────┐
-│   Agent A   │◄────────────────────►│   Agent B   │◄────────────────────►│   Agent C   │
-│  (Router)   │                      │  (Weather)  │                      │   (Joke)    │
-└──────┬──────┘                      └──────┬──────┘                      └──────┬──────┘
-       │                                    │                                    │
-       │                                    │                                    │
-       │                                    │                                    │
-       ▼                                    ▼                                    ▼
-┌─────────────┐                      ┌─────────────┐                      ┌─────────────┐
-│  Streamlit  │                      │   Weather   │                      │    Joke     │
-│  Interface  │                      │  MCP Server │                      │ MCP Server  │
-└─────────────┘                      └─────────────┘                      └─────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              User Interface                             │
+│                              (Streamlit)                                │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │
+                                │ HTTP/WebSocket
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              Agent A (Router)                           │
+│                              (Streamlit + httpx)                        │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │
+                                │ A2A Protocol (HTTP/REST)
+                                │
+                ┌───────────────┴───────────────┐
+                │                               │
+                ▼                               ▼
+┌─────────────────────────┐         ┌─────────────────────────┐
+│      Agent B            │         │      Agent C            │
+│   (Weather Fetcher)     │         │    (Joke Teller)        │
+│   (FastAPI + httpx)     │         │   (FastAPI + httpx)     │
+└───────────┬─────────────┘         └───────────┬─────────────┘
+            │                                   │
+            │ MCP Protocol (HTTP/REST)          │ MCP Protocol (HTTP/REST)
+            │                                   │
+            ▼                                   ▼
+┌─────────────────────────┐         ┌─────────────────────────┐
+│   Weather MCP Server    │         │    Joke MCP Server      │
+│      (FastAPI)          │         │       (FastAPI)         │
+└─────────────────────────┘         └─────────────────────────┘
 ```
 
 ### 2. Weather Request Flow
 ```
-1. User Request
-   ┌─────────────┐
-   │    User     │
-   └──────┬──────┘
-          │
-          ▼
-2. Intent Analysis (A2A)
-   ┌─────────────┐
-   │   Agent A   │
-   │  (Router)   │
-   └──────┬──────┘
-          │
-          ▼
+1. User Request (Streamlit)
+   ┌─────────────────┐
+   │      User       │
+   └────────┬────────┘
+            │
+            ▼
+2. Intent Analysis (Agent A)
+   ┌─────────────────┐
+   │    Agent A      │
+   │  (Streamlit)    │
+   └────────┬────────┘
+            │
+            ▼
 3. Weather Request (A2A)
-   ┌─────────────┐
-   │   Agent B   │
-   │  (Weather)  │
-   └──────┬──────┘
-          │
-          ▼
+   ┌─────────────────┐
+   │    Agent B      │
+   │   (FastAPI)     │
+   └────────┬────────┘
+            │
+            ▼
 4. MCP Request
-   ┌─────────────┐
-   │   Weather   │
-   │  MCP Server │
-   └──────┬──────┘
-          │
-          ▼
+   ┌─────────────────┐
+   │ Weather MCP     │
+   │   (FastAPI)     │
+   └────────┬────────┘
+            │
+            ▼
 5. Response Flow (A2A)
-   ┌─────────────┐
-   │    User     │
-   └─────────────┘
+   ┌─────────────────┐
+   │      User       │
+   └─────────────────┘
 ```
 
 ### 3. Joke Request Flow
 ```
-1. User Request
-   ┌─────────────┐
-   │    User     │
-   └──────┬──────┘
-          │
-          ▼
-2. Intent Analysis (A2A)
-   ┌─────────────┐
-   │   Agent A   │
-   │  (Router)   │
-   └──────┬──────┘
-          │
-          ▼
+1. User Request (Streamlit)
+   ┌─────────────────┐
+   │      User       │
+   └────────┬────────┘
+            │
+            ▼
+2. Intent Analysis (Agent A)
+   ┌─────────────────┐
+   │    Agent A      │
+   │  (Streamlit)    │
+   └────────┬────────┘
+            │
+            ▼
 3. Joke Request (A2A)
-   ┌─────────────┐
-   │   Agent C   │
-   │   (Joke)    │
-   └──────┬──────┘
-          │
-          ▼
+   ┌─────────────────┐
+   │    Agent C      │
+   │   (FastAPI)     │
+   └────────┬────────┘
+            │
+            ▼
 4. MCP Request
-   ┌─────────────┐
-   │    Joke     │
-   │ MCP Server  │
-   └──────┬──────┘
-          │
-          ▼
+   ┌─────────────────┐
+   │  Joke MCP      │
+   │   (FastAPI)     │
+   └────────┬────────┘
+            │
+            ▼
 5. Response Flow (A2A)
-   ┌─────────────┐
-   │    User     │
-   └─────────────┘
+   ┌─────────────────┐
+   │      User       │
+   └─────────────────┘
 ```
 
 ## Technical Implementation Details
